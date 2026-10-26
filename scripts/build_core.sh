@@ -15,7 +15,8 @@ case "$(xcode-select -p)" in
 esac
 xcrun --sdk iphoneos --show-sdk-path >/dev/null || { echo "iOS SDK not found: open Xcode once and accept the license"; exit 1; }
 
-cd "$(dirname "$0")/../Core"
+   mkdir -p "$(dirname "$0")/../Core"
+   cd "$(dirname "$0")/../Core"
 [ -d AppleWin ] || git clone --recurse-submodules https://github.com/AppleWin/AppleWin.git
 cd AppleWin
 # TODO: pin to the commit matching RAppleWin 1.30.20.0 (Nov 2024 release tag).
