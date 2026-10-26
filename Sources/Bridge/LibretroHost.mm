@@ -4,11 +4,13 @@
 #include "libretro_min.h"
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 static __weak LibretroHost *gHost;               // libretro callbacks are C; one core per process
 static std::mutex gAudioLock;
 static std::vector<int16_t> gRing;               // interleaved stereo
 static retro_keyboard_event_t gKeyCb = nullptr;
+static std::atomic<uint16_t> gPad{0};            // bit n = RETRO_DEVICE_ID_JOYPAD id n held
 static NSString *gSysDir, *gSaveDir;
 
 static bool envCb(unsigned cmd, void *data) {
@@ -47,7 +49,12 @@ static size_t audioBatchCb(const int16_t *d, size_t frames) {
 }
 static void audioSampleCb(int16_t l, int16_t r) { int16_t s[2] = {l, r}; audioBatchCb(s, 1); }
 static void pollCb(void) {}
-static int16_t inputCb(unsigned, unsigned, unsigned, unsigned) { return 0; } // joystick: TODO
+static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
+  if (port != 0 || device != RETRO_DEVICE_JOYPAD) return 0;
+  uint16_t m = gPad.load();
+  if (id == RETRO_DEVICE_ID_JOYPAD_MASK) return (int16_t)m;
+  return id < 16 ? (int16_t)((m >> id) & 1) : 0;
+}
 
 @implementation LibretroHost {
   CADisplayLink *_link;
@@ -112,8 +119,13 @@ static int16_t inputCb(unsigned, unsigned, unsigned, unsigned) { return 0; } // 
 - (void)reset { if (_loaded) retro_reset(); }
 - (void)tick { retro_run(); /* TODO: rc_client_do_frame() for achievements */ }
 
-- (void)sendKey:(uint32_t)ch keycode:(unsigned)kc down:(BOOL)down {
-  if (gKeyCb) gKeyCb(down, kc, ch, 0);
+- (void)sendKey:(uint32_t)ch keycode:(unsigned)kc modifiers:(unsigned)mods down:(BOOL)down {
+  if (gKeyCb) gKeyCb(down, kc, ch, (uint16_t)mods);
+}
+- (void)setJoypadButton:(unsigned)button pressed:(BOOL)pressed {
+  if (button > 15) return;
+  if (pressed) gPad.fetch_or((uint16_t)(1u << button));
+  else gPad.fetch_and((uint16_t)~(1u << button));
 }
 - (const uint8_t *)systemRAM:(size_t *)size {
   *size = retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM);
