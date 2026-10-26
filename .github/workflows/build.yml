@@ -1,0 +1,48 @@
+name: Build core and IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tool versions
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          cmake --version || true
+
+      - name: Install build tools
+        run: brew install cmake ninja xcodegen
+
+      - name: Build AppleWin libretro core (iOS arm64)
+        run: |
+          set -o pipefail
+          scripts/build_core.sh 2>&1 | tee core_build.log
+
+      - name: Build unsigned IPA
+        run: |
+          set -o pipefail
+          scripts/make_ipa.sh 2>&1 | tee ipa_build.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            core_build.log
+            ipa_build.log
+            Core/AppleWin/build-*/CMakeFiles/CMakeError.log
+            Core/AppleWin/build-*/CMakeFiles/CMakeOutput.log
+          if-no-files-found: ignore
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: RAppleWin-ipa
+          path: RAppleWin.ipa
