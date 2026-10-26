@@ -16,6 +16,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)sendKey:(uint32_t)character keycode:(unsigned)keycode modifiers:(unsigned)modifiers down:(BOOL)down;
 /// Joypad button state for port 0. `button` is a libretro RETRO_DEVICE_ID_JOYPAD_* id (0-11).
 - (void)setJoypadButton:(unsigned)button pressed:(BOOL)pressed;
+/// Whether the core exposed libretro's disk-control interface.
+@property (nonatomic, readonly) BOOL diskControlAvailable;
+/// Sets a core option (e.g. "applewin_video_mode" = "Monochrome (Green)").
+- (void)setOption:(NSString *)key value:(NSString *)value;
+/// Inserts a disk image into drive 1 or 2 while running.
+- (BOOL)insertDiskAtPath:(NSString *)path drive:(int)drive;
+/// Opens the tray / removes the disk in drive 1 or 2.
+- (BOOL)ejectDriveNumber:(int)drive;
+- (BOOL)saveStateToPath:(NSString *)path;
+- (BOOL)loadStateFromPath:(NSString *)path;
 /// Short text describing controller setup and input polling (for the on-screen debug readout).
 - (NSString *)debugInfo;
 /// Main RAM view for RetroAchievements (rcheevos) memory reads.

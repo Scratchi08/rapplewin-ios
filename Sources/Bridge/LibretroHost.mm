@@ -18,6 +18,10 @@ static unsigned gStdPadId = 0;                    // device id the core calls "S
 static unsigned gDevice = 0;                      // device we selected for port 0
 static std::atomic<uint32_t> gInputPolls{0};
 static std::atomic<unsigned> gLastDevice{0};
+static retro_disk_control_callback gDisk = {};
+static bool gHaveDisk = false;
+static NSMutableDictionary<NSString *, NSString *> *gOptions = [NSMutableDictionary new];
+static std::atomic<bool> gVarsDirty{false};
 
 static bool envCb(unsigned cmd, void *data) {
   switch (cmd) {
@@ -46,8 +50,23 @@ static bool envCb(unsigned cmd, void *data) {
       gControllerInfo = s;
       return true;
     }
-    case RETRO_ENVIRONMENT_GET_VARIABLE:
-      return false;   // use core defaults
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE:
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE:
+      gDisk = *(const retro_disk_control_callback *)data;   // EXT struct begins with the same 7 callbacks
+      gHaveDisk = true;
+      return true;
+    case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION:
+      *(unsigned *)data = 1; return true;
+    case RETRO_ENVIRONMENT_GET_VARIABLE: {
+      retro_variable *v = (retro_variable *)data;
+      NSString *val = (v && v->key) ? gOptions[@(v->key)] : nil;
+      if (!val) return false;                 // not overridden: core uses its default
+      v->value = val.UTF8String;              // gOptions keeps the NSString alive
+      return true;
+    }
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
+      *(bool *)data = gVarsDirty.exchange(false);
+      return true;
     default: return false;
   }
 }
@@ -154,9 +173,56 @@ static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
   if (pressed) gPad.fetch_or((uint16_t)(1u << button));
   else gPad.fetch_and((uint16_t)~(1u << button));
 }
+- (BOOL)diskControlAvailable { return gHaveDisk; }
+
+- (void)setOption:(NSString *)key value:(NSString *)value {
+  gOptions[key] = value;
+  gVarsDirty = true;
+}
+
+/// Points the core's disk-control operations at drive 1 or 2, then runs one frame so it sees the change.
+- (void)selectDrive:(int)drive {
+  [self setOption:@"applewin_disk_control_drive" value:(drive == 2 ? @"Drive 2" : @"Drive 1")];
+  if (_loaded) retro_run();
+}
+
+- (BOOL)insertDiskAtPath:(NSString *)path drive:(int)drive {
+  if (!gHaveDisk || !_loaded || !gDisk.set_eject_state || !gDisk.replace_image_index) return NO;
+  [self selectDrive:drive];
+  gDisk.set_eject_state(true);
+  unsigned idx = gDisk.get_num_images ? gDisk.get_num_images() : 0;
+  if (gDisk.add_image_index) gDisk.add_image_index();
+  retro_game_info info = { path.UTF8String, nullptr, 0, nullptr };
+  BOOL ok = gDisk.replace_image_index(idx, &info);
+  if (ok && gDisk.set_image_index) gDisk.set_image_index(idx);
+  gDisk.set_eject_state(false);
+  return ok;
+}
+
+- (BOOL)ejectDriveNumber:(int)drive {
+  if (!gHaveDisk || !_loaded || !gDisk.set_eject_state) return NO;
+  [self selectDrive:drive];
+  return gDisk.set_eject_state(true);
+}
+
+- (BOOL)saveStateToPath:(NSString *)path {
+  if (!_loaded) return NO;
+  size_t n = retro_serialize_size();
+  if (!n) return NO;
+  NSMutableData *d = [NSMutableData dataWithLength:n];
+  if (!retro_serialize(d.mutableBytes, n)) return NO;
+  return [d writeToFile:path atomically:YES];
+}
+
+- (BOOL)loadStateFromPath:(NSString *)path {
+  if (!_loaded) return NO;
+  NSData *d = [NSData dataWithContentsOfFile:path];
+  return d.length && retro_unserialize(d.bytes, d.length);
+}
+
 - (NSString *)debugInfo {
-  return [NSString stringWithFormat:@"%@ | set dev=%u | polls=%u lastdev=%u",
-          gControllerInfo, gDevice, gInputPolls.load(), gLastDevice.load()];
+  return [NSString stringWithFormat:@"%@ | set dev=%u | polls=%u lastdev=%u | diskctl=%d",
+          gControllerInfo, gDevice, gInputPolls.load(), gLastDevice.load(), gHaveDisk];
 }
 - (const uint8_t *)systemRAM:(size_t *)size {
   *size = retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM);

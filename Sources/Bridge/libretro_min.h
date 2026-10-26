@@ -27,7 +27,11 @@ extern "C" {
 #define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
 #define RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK 12
 #define RETRO_ENVIRONMENT_SET_CONTROLLER_INFO 35
+#define RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE 13
 #define RETRO_ENVIRONMENT_GET_VARIABLE 15
+#define RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE 17
+#define RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION 57
+#define RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE 58
 #define RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY 31
 #define RETRO_PIXEL_FORMAT_XRGB8888 1
 
@@ -38,6 +42,20 @@ struct retro_system_av_info { struct retro_game_geometry geometry; struct retro_
 struct retro_variable { const char *key; const char *value; };
 typedef void (*retro_keyboard_event_t)(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers);
 struct retro_keyboard_callback { retro_keyboard_event_t callback; };
+typedef bool (*retro_set_eject_state_t)(bool ejected);
+typedef bool (*retro_get_eject_state_t)(void);
+typedef unsigned (*retro_get_image_index_t)(void);
+typedef bool (*retro_set_image_index_t)(unsigned index);
+typedef unsigned (*retro_get_num_images_t)(void);
+typedef bool (*retro_replace_image_index_t)(unsigned index, const struct retro_game_info *info);
+typedef bool (*retro_add_image_index_t)(void);
+/* The EXT interface starts with these same 7 members, so it can be read through this struct. */
+struct retro_disk_control_callback {
+  retro_set_eject_state_t set_eject_state; retro_get_eject_state_t get_eject_state;
+  retro_get_image_index_t get_image_index; retro_set_image_index_t set_image_index;
+  retro_get_num_images_t get_num_images; retro_replace_image_index_t replace_image_index;
+  retro_add_image_index_t add_image_index;
+};
 struct retro_controller_description { const char *desc; unsigned id; };
 struct retro_controller_info { const struct retro_controller_description *types; unsigned num_types; };
 
