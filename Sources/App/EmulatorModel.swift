@@ -13,6 +13,8 @@ final class EmulatorModel: ObservableObject {
     @Published var status = "No disk loaded"
     @Published var ctrlLatched = false
     @Published var controllerName: String?
+    @Published var debugText = ""
+    private var frameCount = 0
     private var host: LibretroHost?
 
     private var docs: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
@@ -32,7 +34,12 @@ final class EmulatorModel: ObservableObject {
         let sys = docs.appendingPathComponent("system"), save = docs.appendingPathComponent("saves")
         for d in [sys, save] { try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) }
         let h = LibretroHost(systemDirectory: sys.path, saveDirectory: save.path)
-        h.onFrame = { [weak self] img in self?.frame = img }
+        h.onFrame = { [weak self] img in
+            guard let self = self else { return }
+            self.frame = img
+            self.frameCount += 1
+            if self.frameCount % 30 == 0 { self.debugText = self.host?.debugInfo() ?? "" }
+        }
         host = h
         // Bundled sample disk (AppleWin's MASTER.DSK, DOS 3.3 master)
         if let url = Bundle.main.url(forResource: "MASTER", withExtension: "DSK") { load(url) }

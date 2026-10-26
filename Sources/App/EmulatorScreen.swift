@@ -64,6 +64,9 @@ struct EmulatorScreen: View {
 
     private var joystickOverlay: some View {
         VStack {
+            Text(model.debugText).font(.system(size: 9, design: .monospaced)).foregroundColor(.yellow)
+                .padding(4).background(Color.black.opacity(0.6)).cornerRadius(4)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 6)
             Spacer()
             HStack(alignment: .bottom) {
                 VStack(spacing: 4) {
