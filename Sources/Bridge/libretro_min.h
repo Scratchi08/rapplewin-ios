@@ -23,8 +23,10 @@ extern "C" {
 #define RETRO_DEVICE_ID_JOYPAD_MASK 256
 #define RETRO_MEMORY_SYSTEM_RAM 2
 #define RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY 9
+#define RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS 11
 #define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
 #define RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK 12
+#define RETRO_ENVIRONMENT_SET_CONTROLLER_INFO 35
 #define RETRO_ENVIRONMENT_GET_VARIABLE 15
 #define RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY 31
 #define RETRO_PIXEL_FORMAT_XRGB8888 1
@@ -36,6 +38,8 @@ struct retro_system_av_info { struct retro_game_geometry geometry; struct retro_
 struct retro_variable { const char *key; const char *value; };
 typedef void (*retro_keyboard_event_t)(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers);
 struct retro_keyboard_callback { retro_keyboard_event_t callback; };
+struct retro_controller_description { const char *desc; unsigned id; };
+struct retro_controller_info { const struct retro_controller_description *types; unsigned num_types; };
 
 typedef bool (*retro_environment_t)(unsigned cmd, void *data);
 typedef void (*retro_video_refresh_t)(const void *data, unsigned width, unsigned height, size_t pitch);
@@ -50,6 +54,7 @@ void retro_set_audio_sample(retro_audio_sample_t);
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t);
 void retro_set_input_poll(retro_input_poll_t);
 void retro_set_input_state(retro_input_state_t);
+void retro_set_controller_port_device(unsigned port, unsigned device);
 void retro_init(void);
 void retro_deinit(void);
 bool retro_load_game(const struct retro_game_info *);

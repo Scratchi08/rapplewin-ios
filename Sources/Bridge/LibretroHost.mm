@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <string.h>
 
 static __weak LibretroHost *gHost;               // libretro callbacks are C; one core per process
 static std::mutex gAudioLock;
@@ -12,6 +13,11 @@ static std::vector<int16_t> gRing;               // interleaved stereo
 static retro_keyboard_event_t gKeyCb = nullptr;
 static std::atomic<uint16_t> gPad{0};            // bit n = RETRO_DEVICE_ID_JOYPAD id n held
 static NSString *gSysDir, *gSaveDir;
+static NSString *gControllerInfo = @"(no controller info from core)";
+static unsigned gStdPadId = 0;                    // device id the core calls "Standard..." on port 0
+static unsigned gDevice = 0;                      // device we selected for port 0
+static std::atomic<uint32_t> gInputPolls{0};
+static std::atomic<unsigned> gLastDevice{0};
 
 static bool envCb(unsigned cmd, void *data) {
   switch (cmd) {
@@ -23,6 +29,23 @@ static bool envCb(unsigned cmd, void *data) {
       *(const char **)data = gSaveDir.UTF8String; return true;
     case RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK:
       gKeyCb = ((retro_keyboard_callback *)data)->callback; return true;
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
+      return true;
+    case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO: {
+      const retro_controller_info *info = (const retro_controller_info *)data;
+      NSMutableString *s = [NSMutableString string];
+      for (unsigned port = 0; info && info->types; info++, port++) {
+        [s appendFormat:@"p%u:", port];
+        for (unsigned i = 0; i < info->num_types; i++) {
+          const retro_controller_description &d = info->types[i];
+          [s appendFormat:@" %s=%u", d.desc ? d.desc : "?", d.id];
+          if (port == 0 && d.desc && strstr(d.desc, "Standard") && !gStdPadId) gStdPadId = d.id;
+        }
+        [s appendString:@"; "];
+      }
+      gControllerInfo = s;
+      return true;
+    }
     case RETRO_ENVIRONMENT_GET_VARIABLE:
       return false;   // use core defaults
     default: return false;
@@ -50,7 +73,8 @@ static size_t audioBatchCb(const int16_t *d, size_t frames) {
 static void audioSampleCb(int16_t l, int16_t r) { int16_t s[2] = {l, r}; audioBatchCb(s, 1); }
 static void pollCb(void) {}
 static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
-  if (port != 0 || device != RETRO_DEVICE_JOYPAD) return 0;
+  gInputPolls++; gLastDevice = device;
+  if (port != 0 || (device & 0xFF) != RETRO_DEVICE_JOYPAD) return 0;   // low byte = base device (subclasses allowed)
   uint16_t m = gPad.load();
   if (id == RETRO_DEVICE_ID_JOYPAD_MASK) return (int16_t)m;
   return id < 16 ? (int16_t)((m >> id) & 1) : 0;
@@ -81,6 +105,9 @@ static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
   if (!retro_load_game(&info)) return NO;
   retro_system_av_info av; retro_get_system_av_info(&av);
   _fps = av.timing.fps > 0 ? av.timing.fps : 60.0;
+  // Tell the core which controller is on port 0 (many cores ignore input until told)
+  gDevice = gStdPadId ? gStdPadId : RETRO_DEVICE_JOYPAD;
+  retro_set_controller_port_device(0, gDevice);
   [self setupAudio:av.timing.sample_rate];
   _loaded = YES; return YES;
 }
@@ -126,6 +153,10 @@ static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
   if (button > 15) return;
   if (pressed) gPad.fetch_or((uint16_t)(1u << button));
   else gPad.fetch_and((uint16_t)~(1u << button));
+}
+- (NSString *)debugInfo {
+  return [NSString stringWithFormat:@"%@ | set dev=%u | polls=%u lastdev=%u",
+          gControllerInfo, gDevice, gInputPolls.load(), gLastDevice.load()];
 }
 - (const uint8_t *)systemRAM:(size_t *)size {
   *size = retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM);

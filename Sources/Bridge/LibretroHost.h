@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)sendKey:(uint32_t)character keycode:(unsigned)keycode modifiers:(unsigned)modifiers down:(BOOL)down;
 /// Joypad button state for port 0. `button` is a libretro RETRO_DEVICE_ID_JOYPAD_* id (0-11).
 - (void)setJoypadButton:(unsigned)button pressed:(BOOL)pressed;
+/// Short text describing controller setup and input polling (for the on-screen debug readout).
+- (NSString *)debugInfo;
 /// Main RAM view for RetroAchievements (rcheevos) memory reads.
 - (const uint8_t * _Nullable)systemRAM:(size_t *)size;
 @end
