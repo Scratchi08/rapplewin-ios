@@ -2,7 +2,6 @@
 name: RAppleWin
 options:
   bundleIdPrefix: com.example
-  xcodeVersion: "1540"
   deploymentTarget: { iOS: "16.0" }
 settings:
   base:
