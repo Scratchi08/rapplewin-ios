@@ -2,7 +2,7 @@ import SwiftUI
 
 struct EmulatorScreen: View {
     @ObservedObject var model: EmulatorModel
-    @State private var pickingDisk = false
+    @State private var showDisks = false
     @State private var showJoystick = false
     @State private var typed = ""
     @FocusState private var kbFocus: Bool
@@ -35,9 +35,7 @@ struct EmulatorScreen: View {
 
             controlBar
         }
-        .fileImporter(isPresented: $pickingDisk, allowedContentTypes: [.data]) { r in
-            if case .success(let url) = r { model.load(url) }
-        }
+        .sheet(isPresented: $showDisks) { DiskManagerView(model: model) }
     }
 
     // Apple II arrows are ^H ^U ^K ^J; libretro keycodes: Left 276, Right 275, Up 273, Down 274
@@ -52,7 +50,7 @@ struct EmulatorScreen: View {
                 Divider().frame(height: 24)
                 Button(showJoystick ? "Joy ✓" : "Joy") { showJoystick.toggle(); kbFocus = false }
                 Button("Reset") { model.reset() }
-                Button("Disk…") { pickingDisk = true }
+                Button("Disks") { showDisks = true }
             }
             .buttonStyle(.bordered).padding(8)
         }

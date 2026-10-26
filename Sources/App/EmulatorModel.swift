@@ -8,14 +8,27 @@ enum Pad {
     static let a: UInt32 = 8, x: UInt32 = 9, l: UInt32 = 10, r: UInt32 = 11
 }
 
+struct DiskItem: Identifiable {
+    let url: URL
+    var id: String { url.lastPathComponent }
+    var name: String { url.lastPathComponent }
+}
+
 final class EmulatorModel: ObservableObject {
     @Published var frame: UIImage?
     @Published var status = "No disk loaded"
     @Published var ctrlLatched = false
     @Published var controllerName: String?
     @Published var debugText = ""
+    @Published var drive1: String?
+    @Published var drive2: String?
+    @Published var library: [DiskItem] = []
+    @Published var message = ""
+    @Published private(set) var bootName: String?
     private var frameCount = 0
     private var host: LibretroHost?
+
+    static let diskExts: Set<String> = ["dsk", "do", "po", "nib", "woz", "2mg", "2img", "hdv", "zip", "gz", "m3u", "iie", "apl", "bin"]
 
     private var docs: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
 
@@ -41,20 +54,97 @@ final class EmulatorModel: ObservableObject {
             if self.frameCount % 30 == 0 { self.debugText = self.host?.debugInfo() ?? "" }
         }
         host = h
-        // Bundled sample disk (AppleWin's MASTER.DSK, DOS 3.3 master)
-        if let url = Bundle.main.url(forResource: "MASTER", withExtension: "DSK") { load(url) }
+        // Resume the last booted disk, else the bundled sample (AppleWin's MASTER.DSK)
+        if let last = UserDefaults.standard.string(forKey: "lastBoot"),
+           FileManager.default.fileExists(atPath: docs.appendingPathComponent(last).path) {
+            bootDisk(docs.appendingPathComponent(last))
+        } else if let url = Bundle.main.url(forResource: "MASTER", withExtension: "DSK") {
+            bootDisk(url)
+        }
+        refreshLibrary()
     }
 
-    func load(_ url: URL) {
+    // MARK: Disks
+
+    /// Copies a disk into the app's Documents folder (the library) unless it is already there.
+    private func localCopy(_ url: URL) -> URL? {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        // Copy into sandbox so the core can reopen it by path
         let dest = docs.appendingPathComponent(url.lastPathComponent)
+        if url.standardizedFileURL.path == dest.standardizedFileURL.path { return dest }
         try? FileManager.default.removeItem(at: dest)
-        try? FileManager.default.copyItem(at: url, to: dest)
+        do { try FileManager.default.copyItem(at: url, to: dest); return dest }
+        catch { message = "Couldn't copy \(url.lastPathComponent): \(error.localizedDescription)"; return nil }
+    }
+
+    func refreshLibrary() {
+        let items = (try? FileManager.default.contentsOfDirectory(at: docs, includingPropertiesForKeys: nil)) ?? []
+        library = items
+            .filter { Self.diskExts.contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent.lowercased() < $1.lastPathComponent.lowercased() }
+            .map { DiskItem(url: $0) }
+    }
+
+    /// Loads a disk as the boot disk (starts it fresh).
+    func bootDisk(_ url: URL) {
+        guard let dest = localCopy(url) else { return }
         if host?.loadDisk(atPath: dest.path) == true {
-            status = dest.lastPathComponent; host?.start()
-        } else { status = "Failed to load \(url.lastPathComponent)" }
+            bootName = dest.lastPathComponent
+            drive1 = bootName; drive2 = nil
+            status = dest.lastPathComponent
+            host?.start()
+            UserDefaults.standard.set(bootName, forKey: "lastBoot")
+            message = "Booted \(dest.lastPathComponent)"
+        } else {
+            message = "Failed to load \(url.lastPathComponent)"
+        }
+        refreshLibrary()
+    }
+
+    /// Swaps a disk into drive 1 or 2 while the emulator keeps running.
+    func insert(_ url: URL, drive: Int) {
+        guard let dest = localCopy(url) else { return }
+        guard host?.diskControlAvailable == true else {
+            message = "This core build didn't expose disk control; use Boot instead."; return
+        }
+        if host?.insertDisk(atPath: dest.path, drive: Int32(drive)) == true {
+            if drive == 2 { drive2 = dest.lastPathComponent } else { drive1 = dest.lastPathComponent }
+            message = "Inserted \(dest.lastPathComponent) in Drive \(drive)"
+        } else {
+            message = "The core rejected \(dest.lastPathComponent) for Drive \(drive)"
+        }
+        refreshLibrary()
+    }
+
+    func eject(drive: Int) {
+        if host?.ejectDriveNumber(Int32(drive)) == true {
+            if drive == 2 { drive2 = nil } else { drive1 = nil }
+            message = "Ejected Drive \(drive)"
+        } else {
+            message = "Couldn't eject Drive \(drive)"
+        }
+    }
+
+    func delete(_ item: DiskItem) {
+        try? FileManager.default.removeItem(at: item.url)
+        message = "Deleted \(item.name)"
+        refreshLibrary()
+    }
+
+    // MARK: Save states (per boot disk, 3 slots)
+
+    private func stateURL(slot: Int) -> URL {
+        docs.appendingPathComponent("saves/\(bootName ?? "none").slot\(slot).state")
+    }
+    func hasState(slot: Int) -> Bool { FileManager.default.fileExists(atPath: stateURL(slot: slot).path) }
+
+    func saveState(slot: Int) {
+        message = host?.saveState(toPath: stateURL(slot: slot).path) == true
+            ? "Saved slot \(slot)" : "The core couldn't save a state"
+    }
+    func loadState(slot: Int) {
+        message = host?.loadState(fromPath: stateURL(slot: slot).path) == true
+            ? "Loaded slot \(slot)" : "The core couldn't load slot \(slot)"
     }
 
     // MARK: Keyboard
