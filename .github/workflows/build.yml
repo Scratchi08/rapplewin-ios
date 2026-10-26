@@ -22,12 +22,12 @@ jobs:
       - name: Build AppleWin libretro core (iOS arm64)
         run: |
           set -o pipefail
-          scripts/build_core.sh 2>&1 | tee core_build.log
+          bash scripts/build_core.sh 2>&1 | tee core_build.log
 
       - name: Build unsigned IPA
         run: |
           set -o pipefail
-          scripts/make_ipa.sh 2>&1 | tee ipa_build.log
+          bash scripts/make_ipa.sh 2>&1 | tee ipa_build.log
 
       - name: Upload logs
         if: always()
