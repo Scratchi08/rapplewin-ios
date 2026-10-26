@@ -22,5 +22,5 @@ targets:
         INFOPLIST_FILE: Sources/App/Info.plist
         # Static libretro core built by scripts/build_core.sh
         LIBRARY_SEARCH_PATHS: ["$(PROJECT_DIR)/Core/build/$(PLATFORM_NAME)"]
-        OTHER_LDFLAGS: ["-lapplewin_libretro", "-lc++", "-lz"]
+        OTHER_LDFLAGS: ["-lapplewin_libretro", "-lz", "-framework", "AVFoundation"]
         HEADER_SEARCH_PATHS: ["$(PROJECT_DIR)/Sources/Bridge"]
