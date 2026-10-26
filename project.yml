@@ -1,0 +1,26 @@
+# Generate the Xcode project with:  brew install xcodegen && xcodegen generate
+name: RAppleWin
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget: { iOS: "16.0" }
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    CLANG_CXX_LANGUAGE_STANDARD: gnu++17
+targets:
+  RAppleWin:
+    type: application
+    platform: iOS
+    sources:
+      - Sources/App
+      - Sources/Bridge
+      - { path: Resources, buildPhase: resources }
+    settings:
+      base:
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Bridge/RAppleWin-Bridging-Header.h
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.RAppleWin
+        INFOPLIST_FILE: Sources/App/Info.plist
+        # Static libretro core built by scripts/build_core.sh
+        LIBRARY_SEARCH_PATHS: ["$(PROJECT_DIR)/Core/build/$(PLATFORM_NAME)"]
+        OTHER_LDFLAGS: ["-lapplewin_libretro", "-lc++", "-lz"]
+        HEADER_SEARCH_PATHS: ["$(PROJECT_DIR)/Sources/Bridge"]
