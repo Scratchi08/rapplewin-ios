@@ -16,6 +16,8 @@ mkdir -p "$ROOT/Core" && cd "$ROOT/Core"
 # rcheevos (RetroAchievements runtime): compiled straight into the app by project.yml
 [ -d rcheevos/.git ] || git clone --depth 1 https://github.com/RetroAchievements/rcheevos.git
 git -C rcheevos log -1 --format='rcheevos %H %ad %s'
+# rcheevos ships a clang module map that breaks textual includes here; we don't use modules for it
+find rcheevos -name 'module.modulemap' -print -delete
 echo "=== rcheevos sources ==="
 find rcheevos/src -name '*.c' | sort
 
