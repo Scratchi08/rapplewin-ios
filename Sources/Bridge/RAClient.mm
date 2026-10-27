@@ -129,11 +129,12 @@ static void eventHandler(const rc_client_event_t *event, rc_client_t *client) {
             badge:[self badgeFor:a state:RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED] unlock:YES];
       break;
     }
-    case RC_CLIENT_EVENT_RESET:
+    case RC_CLIENT_EVENT_RESET: {
       // Hardcore was switched on with a game running: the emulator must restart, then call reset().
       [self toast:@"Hardcore mode on" message:@"Restarting the game." badge:nil unlock:NO];
       dispatch_async(dispatch_get_main_queue(), ^{ if (self.onResetRequested) self.onResetRequested(); });
       break;
+    }
     case RC_CLIENT_EVENT_GAME_COMPLETED:
       [self toast:@"Game completed!" message:@"You earned every achievement in this set." badge:nil unlock:YES];
       break;
