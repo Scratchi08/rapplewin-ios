@@ -13,6 +13,12 @@ cmake --version | head -1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/Core" && cd "$ROOT/Core"
 
+# rcheevos (RetroAchievements runtime): compiled straight into the app by project.yml
+[ -d rcheevos/.git ] || git clone --depth 1 https://github.com/RetroAchievements/rcheevos.git
+git -C rcheevos log -1 --format='rcheevos %H %ad %s'
+echo "=== rcheevos sources ==="
+find rcheevos/src -name '*.c' | sort
+
 # Replace any earlier (wrong) checkout of the Windows-only upstream
 if [ -d AppleWin ] && ! git -C AppleWin remote get-url origin 2>/dev/null | grep -q audetto; then
   rm -rf AppleWin
