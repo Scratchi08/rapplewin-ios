@@ -59,6 +59,11 @@ struct EmulatorScreen: View {
     private var controlBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack {
+                if model.hardcore {
+                    Text("HC").font(.caption.bold()).foregroundColor(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Color.red).clipShape(Capsule())
+                }
                 Button("Ctrl") { model.ctrlLatched.toggle() }
                     .tint(model.ctrlLatched ? .orange : nil)
                     .buttonStyle(.borderedProminent)

@@ -55,6 +55,10 @@ enum CoreOptions {
     static let computer = [machine, slot3, slot4, slot5, slot7]
     static let input = [keyboard]
     static var all: [CoreOption] { display + computer + input }
+    /// Settings that change how the emulated machine behaves; locked while hardcore mode is on.
+    static let hardcoreLocked: Set<String> = [
+        machine.key, slot3.key, slot4.key, slot5.key, slot7.key, refresh.key
+    ]
 }
 
 struct DiskItem: Identifiable {
@@ -86,6 +90,7 @@ final class EmulatorModel: ObservableObject {
     @Published var raLog = ""
     @Published var raAchievements: [RAAchievement] = []
     @Published var toast: RAToast?
+    @Published var hardcore: Bool = UserDefaults.standard.bool(forKey: "hardcore")
     private(set) var currentHash: String?
     private var unlockPlayer: AVAudioPlayer?
 
@@ -113,6 +118,8 @@ final class EmulatorModel: ObservableObject {
             self?.showToast(RAToast(title: title, message: message, badge: badge, unlock: unlock))
         }
         ra.onChange = { [weak self] in self?.refreshRA() }
+        ra.onResetRequested = { [weak self] in self?.restartCurrentDisk() }
+        ra.hardcore = hardcore
         boot()
         NotificationCenter.default.addObserver(forName: .GCControllerDidConnect, object: nil, queue: .main) { [weak self] n in
             if let c = n.object as? GCController { self?.attach(c) }
@@ -228,6 +235,7 @@ final class EmulatorModel: ObservableObject {
     private func raProgressURL(slot: Int) -> URL { stateURL(slot: slot).appendingPathExtension("ra") }
 
     func saveState(slot: Int) {
+        guard !hardcore else { message = "Save states are turned off in hardcore mode"; return }
         if host?.saveState(toPath: stateURL(slot: slot).path) == true {
             // Keep achievement progress in step with the emulator state
             if let progress = ra.serializeProgress() { try? progress.write(to: raProgressURL(slot: slot)) }
@@ -237,6 +245,7 @@ final class EmulatorModel: ObservableObject {
         }
     }
     func loadState(slot: Int) {
+        guard !hardcore else { message = "Save states are turned off in hardcore mode"; return }
         if host?.loadState(fromPath: stateURL(slot: slot).path) == true {
             if let d = try? Data(contentsOf: raProgressURL(slot: slot)), ra.deserializeProgress(d) {
                 // restored
@@ -253,16 +262,21 @@ final class EmulatorModel: ObservableObject {
 
     func value(for opt: CoreOption) -> String { optionValues[opt.key] ?? opt.defaultValue }
 
+    func isLocked(_ opt: CoreOption) -> Bool { hardcore && CoreOptions.hardcoreLocked.contains(opt.key) }
+
     func setOption(_ opt: CoreOption, to value: String) {
+        guard !isLocked(opt) else { return }
         optionValues[opt.key] = value
         UserDefaults.standard.set(optionValues, forKey: "coreOptions")
         host?.setOption(opt.key, value: value)
     }
 
     func resetOptions() {
-        optionValues = [:]
-        UserDefaults.standard.removeObject(forKey: "coreOptions")
-        for opt in CoreOptions.all { host?.setOption(opt.key, value: opt.defaultValue) }
+        for opt in CoreOptions.all where !isLocked(opt) {
+            optionValues[opt.key] = nil
+            host?.setOption(opt.key, value: opt.defaultValue)
+        }
+        UserDefaults.standard.set(optionValues, forKey: "coreOptions")
     }
 
     /// Hardware changes (machine type, cards) need the current disk to be started again.
@@ -271,6 +285,15 @@ final class EmulatorModel: ObservableObject {
     }
 
     // MARK: RetroAchievements
+
+    /// Hardcore: no save states, no hardware changes. Switching it on with a game running restarts the game.
+    func setHardcore(_ on: Bool) {
+        hardcore = on
+        UserDefaults.standard.set(on, forKey: "hardcore")
+        ra.hardcore = on
+        message = on ? "Hardcore mode on" : "Hardcore mode off"
+        refreshRA()
+    }
 
     /// RetroAchievements identifies Apple II games by the MD5 of the whole disk image. AppleWin writes to
     /// images, which changes the MD5, so the hash of the pristine file is stored when it is imported.

@@ -20,7 +20,8 @@ struct SettingsView: View {
                 } header: {
                     Text("Computer")
                 } footer: {
-                    Text("Changing the computer type or its cards only takes effect when the disk is started again.")
+                    Text(model.hardcore ? "Hardcore mode locks the computer type, cards and refresh rate."
+                         : "Changing the computer type or its cards only takes effect when the disk is started again.")
                 }
 
                 Section("Keyboard") {
@@ -44,5 +45,6 @@ struct SettingsView: View {
             set: { model.setOption(opt, to: $0) })) {
             ForEach(opt.values, id: \.self) { Text($0).tag($0) }
         }
+        .disabled(model.isLocked(opt))
     }
 }

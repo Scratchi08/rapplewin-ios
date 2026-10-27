@@ -38,13 +38,16 @@ struct DiskManagerView: View {
                 }
 
                 Section("Save states: \(model.bootName ?? "no disk")") {
+                    if model.hardcore {
+                        Text("Save states are turned off in hardcore mode.").font(.footnote).foregroundColor(.secondary)
+                    }
                     ForEach(1...3, id: \.self) { slot in
                         HStack {
                             Text("Slot \(slot)")
                             Spacer()
-                            Button("Save") { model.saveState(slot: slot) }.buttonStyle(.bordered)
+                            Button("Save") { model.saveState(slot: slot) }.buttonStyle(.bordered).disabled(model.hardcore)
                             Button("Load") { model.loadState(slot: slot) }.buttonStyle(.bordered)
-                                .disabled(!model.hasState(slot: slot))
+                                .disabled(model.hardcore || !model.hasState(slot: slot))
                         }
                     }
                 }

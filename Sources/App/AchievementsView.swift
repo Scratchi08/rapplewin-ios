@@ -9,6 +9,7 @@ struct AchievementsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var user = ""
     @State private var pass = ""
+    @State private var confirmHardcore = false
 
     var body: some View {
         NavigationStack {
@@ -31,7 +32,18 @@ struct AchievementsView: View {
                     if !model.raStatus.isEmpty { Text(model.raStatus).font(.footnote).foregroundColor(.secondary) }
                 }
 
-                Section("Game (softcore mode)") {
+                Section {
+                    Toggle("Hardcore mode", isOn: Binding(
+                        get: { model.hardcore },
+                        set: { on in if on { confirmHardcore = true } else { model.setHardcore(false) } }))
+                } header: {
+                    Text("Mode")
+                } footer: {
+                    Text("Hardcore turns off save states and hardware changes, and restarts the game when you switch it on. "
+                       + "Hardcore unlocks are only credited once RetroAchievements has approved this emulator.")
+                }
+
+                Section(model.hardcore ? "Game (hardcore mode)" : "Game (softcore mode)") {
                     Text(model.raGameTitle ?? "No achievement set for the booted disk")
                     if !model.raSummary.isEmpty { Text(model.raSummary).font(.footnote) }
                     if let hash = model.currentHash {
@@ -63,6 +75,12 @@ struct AchievementsView: View {
                 }
             }
             .navigationTitle("Achievements")
+            .alert("Turn on hardcore mode?", isPresented: $confirmHardcore) {
+                Button("Turn on", role: .destructive) { model.setHardcore(true) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The game will restart. Save states and hardware changes are disabled while hardcore is on.")
+            }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
