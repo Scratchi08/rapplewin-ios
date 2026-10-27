@@ -18,6 +18,45 @@ struct RAToast: Identifiable {
     let unlock: Bool
 }
 
+/// A libretro core option the app exposes (keys and values from the AppleWin core's documentation).
+struct CoreOption: Identifiable {
+    let key: String
+    let title: String
+    let values: [String]
+    let defaultValue: String
+    var id: String { key }
+}
+
+enum CoreOptions {
+    static let videoMode = CoreOption(key: "applewin_video_mode", title: "Screen colours",
+        values: ["Color (RGB Card/Monitor)", "Color (Composite Idealized)", "Color (Composite Monitor)", "Color TV",
+                 "B&W TV", "Monochrome (Amber)", "Monochrome (Green)", "Monochrome (White)"],
+        defaultValue: "Color (RGB Card/Monitor)")
+    static let videoStyle = CoreOption(key: "applewin_video_style", title: "Scanlines / resolution",
+        values: ["Half Scanlines", "560 x 192", "280 x 192"], defaultValue: "Half Scanlines")
+    static let refresh = CoreOption(key: "applewin_video_refresh_rate", title: "Refresh rate",
+        values: ["60Hz", "50Hz"], defaultValue: "60Hz")
+    static let machine = CoreOption(key: "applewin_machine", title: "Apple II type",
+        values: ["Apple II (original)", "Apple II Plus", "Apple II J-Plus", "Apple //e (original)", "Apple //e (enhanced)",
+                 "Pravets 82", "Pravets 8M", "Pravets 8A", "Base64A", "TK3000 //e"],
+        defaultValue: "Apple //e (enhanced)")
+    static let slot3 = CoreOption(key: "applewin_slot3", title: "Card in slot 3",
+        values: ["Empty", "Video HD"], defaultValue: "Empty")
+    static let slot4 = CoreOption(key: "applewin_slot4", title: "Card in slot 4",
+        values: ["Empty", "Mockingboard C", "Mouse Card", "Phasor"], defaultValue: "Mockingboard C")
+    static let slot5 = CoreOption(key: "applewin_slot5", title: "Card in slot 5",
+        values: ["Empty", "Z80 SoftCard", "Mockingboard C", "Phasor", "SAM"], defaultValue: "Empty")
+    static let slot7 = CoreOption(key: "applewin_slot7", title: "Card in slot 7",
+        values: ["Empty", "Hard Disk Controller"], defaultValue: "Hard Disk Controller")
+    static let keyboard = CoreOption(key: "applewin_keyboard_type", title: "Keyboard type",
+        values: ["ASCII", "Original"], defaultValue: "ASCII")
+
+    static let display = [videoMode, videoStyle, refresh]
+    static let computer = [machine, slot3, slot4, slot5, slot7]
+    static let input = [keyboard]
+    static var all: [CoreOption] { display + computer + input }
+}
+
 struct DiskItem: Identifiable {
     let url: URL
     var id: String { url.lastPathComponent }
@@ -49,6 +88,19 @@ final class EmulatorModel: ObservableObject {
     @Published var toast: RAToast?
     private(set) var currentHash: String?
     private var unlockPlayer: AVAudioPlayer?
+
+    // Settings (persisted)
+    @Published var optionValues: [String: String] =
+        UserDefaults.standard.dictionary(forKey: "coreOptions") as? [String: String] ?? [:]
+    @Published var smoothScaling: Bool = UserDefaults.standard.bool(forKey: "smoothScaling") {
+        didSet { UserDefaults.standard.set(smoothScaling, forKey: "smoothScaling") }
+    }
+    @Published var stretch43: Bool = (UserDefaults.standard.object(forKey: "stretch43") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(stretch43, forKey: "stretch43") }
+    }
+    @Published var showControlBar: Bool = (UserDefaults.standard.object(forKey: "showControlBar") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(showControlBar, forKey: "showControlBar") }
+    }
     private var frameCount = 0
     private var host: LibretroHost?
 
@@ -84,6 +136,8 @@ final class EmulatorModel: ObservableObject {
         }
         h.onTick = { [weak self] in self?.ra.doFrame() }
         host = h
+        // Re-apply the options the user changed, before the first disk loads
+        for (k, v) in optionValues { h.setOption(k, value: v) }
         // Resume the last booted disk, else the bundled sample (AppleWin's MASTER.DSK)
         if let last = UserDefaults.standard.string(forKey: "lastBoot"),
            FileManager.default.fileExists(atPath: docs.appendingPathComponent(last).path) {
@@ -193,6 +247,27 @@ final class EmulatorModel: ObservableObject {
         } else {
             message = "The core couldn't load slot \(slot)"
         }
+    }
+
+    // MARK: Settings
+
+    func value(for opt: CoreOption) -> String { optionValues[opt.key] ?? opt.defaultValue }
+
+    func setOption(_ opt: CoreOption, to value: String) {
+        optionValues[opt.key] = value
+        UserDefaults.standard.set(optionValues, forKey: "coreOptions")
+        host?.setOption(opt.key, value: value)
+    }
+
+    func resetOptions() {
+        optionValues = [:]
+        UserDefaults.standard.removeObject(forKey: "coreOptions")
+        for opt in CoreOptions.all { host?.setOption(opt.key, value: opt.defaultValue) }
+    }
+
+    /// Hardware changes (machine type, cards) need the current disk to be started again.
+    func restartCurrentDisk() {
+        if let name = bootName { bootDisk(docs.appendingPathComponent(name)) }
     }
 
     // MARK: RetroAchievements

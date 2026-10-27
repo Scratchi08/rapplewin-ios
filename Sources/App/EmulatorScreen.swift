@@ -4,27 +4,43 @@ struct EmulatorScreen: View {
     @ObservedObject var model: EmulatorModel
     @State private var showDisks = false
     @State private var showAchievements = false
+    @State private var showSettings = false
     @State private var showJoystick = false
-    @State private var typed = ""
-    @FocusState private var kbFocus: Bool
+    @State private var softKeyboard = false
+
+    private var sheetOpen: Bool { showDisks || showAchievements || showSettings }
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Color.black
                 if let f = model.frame {
-                    Image(uiImage: f).interpolation(.none).resizable().aspectRatio(contentMode: .fit)
+                    Image(uiImage: f)
+                        .interpolation(model.smoothScaling ? .high : .none)
+                        .resizable()
+                        .aspectRatio(model.stretch43 ? CGFloat(4.0 / 3.0) : f.size.width / max(f.size.height, 1),
+                                     contentMode: .fit)
                 } else {
                     Text(model.status).foregroundColor(.gray)
                 }
+
+                // Invisible: receives the on-screen and hardware keyboards
+                KeyCapture(model: model, active: !sheetOpen, softKeyboard: softKeyboard && !showJoystick)
+                    .frame(width: 1, height: 1).opacity(0.01).allowsHitTesting(false)
+
                 if showJoystick { joystickOverlay }
                 if let name = model.controllerName {
                     VStack { Text("🎮 \(name)").font(.caption).padding(4)
                         .background(Color.black.opacity(0.5)).cornerRadius(6); Spacer() }
                         .frame(maxWidth: .infinity, alignment: .trailing).padding(6)
                 }
+                if !model.showControlBar {
+                    VStack { HStack { Button("⚙︎") { showSettings = true }
+                        .buttonStyle(.bordered).opacity(0.6); Spacer() }; Spacer() }.padding(6)
+                }
             }
-            .onTapGesture { if !showJoystick { kbFocus = true } }
+            .contentShape(Rectangle())
+            .onTapGesture { if !showJoystick { softKeyboard.toggle() } }
             .overlay(alignment: .top) {
                 if let t = model.toast {
                     ToastView(toast: t).padding(.top, 8).transition(.move(edge: .top).combined(with: .opacity))
@@ -32,18 +48,11 @@ struct EmulatorScreen: View {
             }
             .animation(.easeInOut(duration: 0.25), value: model.toast?.id)
 
-            // Hidden field captures the iOS software keyboard
-            TextField("", text: $typed).focused($kbFocus).frame(width: 1, height: 1).opacity(0.01)
-                .autocorrectionDisabled().textInputAutocapitalization(.never)
-                .onChange(of: typed) { new in
-                    for u in new.unicodeScalars { model.key(u.value) }
-                    typed = ""
-                }
-
-            controlBar
+            if model.showControlBar { controlBar }
         }
         .sheet(isPresented: $showDisks) { DiskManagerView(model: model) }
         .sheet(isPresented: $showAchievements) { AchievementsView(model: model) }
+        .sheet(isPresented: $showSettings) { SettingsView(model: model) }
     }
 
     // Apple II arrows are ^H ^U ^K ^J; libretro keycodes: Left 276, Right 275, Up 273, Down 274
@@ -56,10 +65,12 @@ struct EmulatorScreen: View {
                 key("Esc", 27, 27); key("Tab", 9, 9); key("↵", 13, 13)
                 key("←", 8, 276); key("→", 21, 275); key("↑", 11, 273); key("↓", 10, 274)
                 Divider().frame(height: 24)
-                Button(showJoystick ? "Joy ✓" : "Joy") { showJoystick.toggle(); kbFocus = false }
+                Button(softKeyboard ? "⌨ ✓" : "⌨") { softKeyboard.toggle(); if softKeyboard { showJoystick = false } }
+                Button(showJoystick ? "Joy ✓" : "Joy") { showJoystick.toggle(); softKeyboard = false }
                 Button("Reset") { model.reset() }
                 Button("Disks") { showDisks = true }
                 Button("🏆") { showAchievements = true }
+                Button("⚙︎") { showSettings = true }
             }
             .buttonStyle(.bordered).padding(8)
         }
