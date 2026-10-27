@@ -163,7 +163,7 @@ static int16_t inputCb(unsigned port, unsigned device, unsigned, unsigned id) {
 }
 - (void)pause { _link.paused = YES; }
 - (void)reset { if (_loaded) retro_reset(); }
-- (void)tick { retro_run(); /* TODO: rc_client_do_frame() for achievements */ }
+- (void)tick { retro_run(); if (self.onTick) self.onTick(); }
 
 - (void)sendKey:(uint32_t)ch keycode:(unsigned)kc modifiers:(unsigned)mods down:(BOOL)down {
   if (gKeyCb) gKeyCb(down, kc, ch, (uint16_t)mods);

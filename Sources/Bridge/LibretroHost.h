@@ -4,6 +4,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Hosts a statically-linked libretro core (AppleWin) and exposes it to Swift.
 @interface LibretroHost : NSObject
 @property (nonatomic, copy, nullable) void (^onFrame)(UIImage *frame);
+@property (nonatomic, copy, nullable) void (^onTick)(void);   // after every emulated frame
 @property (nonatomic, readonly) BOOL isRunning;
 
 - (instancetype)initWithSystemDirectory:(NSString *)sysDir saveDirectory:(NSString *)saveDir;
