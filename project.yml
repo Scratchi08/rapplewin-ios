@@ -17,7 +17,8 @@ targets:
       - { path: Resources, buildPhase: resources }
       # RetroAchievements runtime (cloned by scripts/build_core.sh). rhash/libretro/RAIntegration are not needed.
       - path: Core/rcheevos/src
-        excludes: ["rhash/**", "**/rc_libretro.*", "**/*raintegration*", "**/*.md", "**/*.txt"]
+      includes: ["**/*.c", "**/*.h"]
+      excludes: ["**/rc_libretro.*", "**/*raintegration*"]
     settings:
       base:
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Bridge/RAppleWin-Bridging-Header.h
