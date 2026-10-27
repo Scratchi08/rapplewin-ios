@@ -18,6 +18,10 @@ typedef void (^RALoadResult)(NSString *_Nullable error);
 @interface RAClient : NSObject
 @property (nonatomic, copy, nullable) void (^onToast)(NSString *title, NSString *message, NSURL *_Nullable badge, BOOL unlock);
 @property (nonatomic, copy, nullable) void (^onChange)(void);
+/// Raised when the emulated system must restart (rcheevos asks for this when hardcore is switched on mid-game).
+@property (nonatomic, copy, nullable) void (^onResetRequested)(void);
+/// Hardcore mode. Off by default. Turning it on with a game loaded raises onResetRequested.
+@property (nonatomic) BOOL hardcore;
 
 @property (nonatomic, readonly, nullable) NSString *displayName;   // nil when logged out
 @property (nonatomic, readonly) uint32_t score;
