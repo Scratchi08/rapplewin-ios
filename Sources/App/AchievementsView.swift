@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension RAAchievement: Identifiable {
-    var id: UInt32 { identifier }
+    public var id: UInt32 { identifier }
 }
 
 struct AchievementsView: View {
