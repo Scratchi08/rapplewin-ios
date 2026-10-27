@@ -3,6 +3,7 @@ import SwiftUI
 struct EmulatorScreen: View {
     @ObservedObject var model: EmulatorModel
     @State private var showDisks = false
+    @State private var showAchievements = false
     @State private var showJoystick = false
     @State private var typed = ""
     @FocusState private var kbFocus: Bool
@@ -24,6 +25,12 @@ struct EmulatorScreen: View {
                 }
             }
             .onTapGesture { if !showJoystick { kbFocus = true } }
+            .overlay(alignment: .top) {
+                if let t = model.toast {
+                    ToastView(toast: t).padding(.top, 8).transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: model.toast?.id)
 
             // Hidden field captures the iOS software keyboard
             TextField("", text: $typed).focused($kbFocus).frame(width: 1, height: 1).opacity(0.01)
@@ -36,6 +43,7 @@ struct EmulatorScreen: View {
             controlBar
         }
         .sheet(isPresented: $showDisks) { DiskManagerView(model: model) }
+        .sheet(isPresented: $showAchievements) { AchievementsView(model: model) }
     }
 
     // Apple II arrows are ^H ^U ^K ^J; libretro keycodes: Left 276, Right 275, Up 273, Down 274
@@ -51,6 +59,7 @@ struct EmulatorScreen: View {
                 Button(showJoystick ? "Joy ✓" : "Joy") { showJoystick.toggle(); kbFocus = false }
                 Button("Reset") { model.reset() }
                 Button("Disks") { showDisks = true }
+                Button("🏆") { showAchievements = true }
             }
             .buttonStyle(.bordered).padding(8)
         }
