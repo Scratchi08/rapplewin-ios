@@ -15,6 +15,9 @@ targets:
       - Sources/App
       - Sources/Bridge
       - { path: Resources, buildPhase: resources }
+      # RetroAchievements runtime (cloned by scripts/build_core.sh). rhash/libretro/RAIntegration are not needed.
+      - path: Core/rcheevos/src
+        excludes: ["rhash/**", "**/rc_libretro.*", "**/*raintegration*", "**/*.md", "**/*.txt"]
     settings:
       base:
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Bridge/RAppleWin-Bridging-Header.h
@@ -23,4 +26,5 @@ targets:
         # Static libretro core built by scripts/build_core.sh
         LIBRARY_SEARCH_PATHS: ["$(PROJECT_DIR)/Core/build/$(PLATFORM_NAME)"]
         OTHER_LDFLAGS: ["-lapplewin_libretro", "-lz", "-framework", "AVFoundation"]
-        HEADER_SEARCH_PATHS: ["$(PROJECT_DIR)/Sources/Bridge"]
+        HEADER_SEARCH_PATHS: ["$(PROJECT_DIR)/Sources/Bridge", "$(PROJECT_DIR)/Core/rcheevos/include", "$(PROJECT_DIR)/Core/rcheevos/src"]
+        GCC_PREPROCESSOR_DEFINITIONS: ["$(inherited)", "RC_DISABLE_LUA=1"]
