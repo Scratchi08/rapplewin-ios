@@ -1,7 +1,7 @@
 # Step 6 checklist: polish
 
 Effort: **S** = small (one sitting), **M** = medium, **L** = large.
-`DECIDE` = needs a decision from you before I start.
+`DECIDE` = unknown
 
 ## Done
 - [x] Settings screen: display, computer (model and cards), keyboard type. Saved between launches.
@@ -56,9 +56,9 @@ Effort: **S** = small (one sitting), **M** = medium, **L** = large.
 27. Cache the cloud build so it runs faster (S)
 
 ### H. Hardcore follow-ups (after RetroAchievements replies)
-28. Contact RetroAchievements about emulator approval (you; I can draft the message)
+28. Contact RetroAchievements about emulator approval
 29. Test a real hardcore unlock once approved (S)
 30. Anything they require in review, such as extra restrictions (unknown)
 
-## Suggested order
+## Current order
 16 (pause on background) > 10 (Open Apple) > 23 (About screen) > 22 (icon) > 5 (iPad layout) > the rest.
